@@ -20,15 +20,46 @@
       "type": "string",
       "title": "Difficulté",
       "description": "Difficulté des puzzles Lichess, relative à ton classement",
-      "options": ["easiest", "easier", "normal", "harder", "hardest"],
+      "options": [
+        "easiest",
+        "easier",
+        "normal",
+        "harder",
+        "hardest"
+      ],
       "default": "normal"
     },
     "pieces": {
       "type": "string",
       "title": "Pièces",
       "description": "Symboles unicode ou lettres (si ton terminal affiche mal ♞)",
-      "options": ["unicode", "letters"],
+      "options": [
+        "unicode",
+        "letters"
+      ],
       "default": "unicode"
+    },
+    "size": {
+      "type": "string",
+      "title": "Taille du plateau",
+      "description": "small (2 colonnes par case), medium (3), large (5×3)",
+      "options": [
+        "small",
+        "medium",
+        "large"
+      ],
+      "default": "medium"
+    },
+    "boardTheme": {
+      "type": "string",
+      "title": "Couleurs du plateau",
+      "description": "auto suit le thème de Claude Code (sombre ou clair)",
+      "options": [
+        "auto",
+        "dark",
+        "light"
+      ],
+      "default": "auto"
     }
   }
 }

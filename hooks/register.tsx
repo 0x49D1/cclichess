@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Account, Game, PuzzleData, Stats, View } from '../types'
+import type { Account, BoardSize, BoardTheme, Game, PuzzleData, Stats, View } from '../types'
 import { parseFen, sideOf, sqIndex, sqName } from './chess'
 import {
   awaitsReply, clickToUci, fromLichess, hint, isWin, newGame, pickOffline, play, reply, reveal,
@@ -20,23 +20,91 @@ const view = atom({ plugin: 'lichess-puzzles', key: 'view' } as const, {
   stats: NO_STATS,
 } as View)
 
-const GLYPHS: Record<string, string> = {
-  K: '♔', Q: '♕', R: '♖', B: '♗', N: '♘', P: '♙',
-  k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟',
+// Filled glyphs for both sides, told apart by their color: readable on mid-tone squares.
+const GLYPHS: Record<string, string> = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' }
+
+type Palette = {
+  light: string
+  dark: string
+  lastLight: string
+  lastDark: string
+  selected: string
+  hint: string
+  white: string
+  black: string
 }
-const COLORS = {
-  light: '#f0d9b5',
-  dark: '#b58863',
-  lastLight: '#cdd26a',
-  lastDark: '#aaa23a',
-  selected: '#829769',
-  hint: '#5f9ea0',
-  piece: '#000000',
+const PALETTES: Record<'dark' | 'light', Palette> = {
+  // Muted slate squares that sit quietly on a dark terminal.
+  dark: {
+    light: '#7b8794',
+    dark: '#55606d',
+    lastLight: '#8f915a',
+    lastDark: '#6f7243',
+    selected: '#5e8a62',
+    hint: '#4d7d8c',
+    white: '#ffffff',
+    black: '#101010',
+  },
+  // Lichess's brown board, a shade softer.
+  light: {
+    light: '#e3cfa8',
+    dark: '#b08660',
+    lastLight: '#cdcf78',
+    lastDark: '#a9a44a',
+    selected: '#88a36f',
+    hint: '#6ea3b0',
+    white: '#ffffff',
+    black: '#000000',
+  },
 }
+
+const SIZES: BoardSize[] = ['small', 'medium', 'large']
+/** Cells across, rows down, per square. */
+const SQUARE: Record<BoardSize, { width: number; height: number }> = {
+  small: { width: 2, height: 1 },
+  medium: { width: 3, height: 1 },
+  large: { width: 5, height: 3 },
+}
+const paneRows = (size: BoardSize) => SQUARE[size].height * 8 + 9
 
 type $ = EngineInterface
 
-const settings = { difficulty: 'normal', letters: false, autoOpen: true, autoClose: false }
+const settings = {
+  difficulty: 'normal',
+  letters: false,
+  autoOpen: true,
+  autoClose: false,
+  size: 'medium' as BoardSize,
+  boardTheme: 'auto' as BoardTheme,
+}
+
+const asSize = (x: unknown): BoardSize | undefined => (SIZES.includes(x as BoardSize) ? (x as BoardSize) : undefined)
+const asTheme = (x: unknown): BoardTheme | undefined =>
+  x === 'auto' || x === 'dark' || x === 'light' ? x : undefined
+
+/** The palette for the board: the chosen one, or the one matching Claude Code's theme. */
+async function paletteFor($: $, chosen: BoardTheme): Promise<Palette> {
+  if (chosen !== 'auto') return PALETTES[chosen]
+  try {
+    const theme = (await $.config.list()).find(row => row.key === 'theme')?.value
+    return typeof theme === 'string' && theme.startsWith('light') ? PALETTES.light : PALETTES.dark
+  } catch {
+    return PALETTES.dark
+  }
+}
+
+async function setSize($: $, size: BoardSize) {
+  await $.store.set('size', size)
+  await update($, view, v => ({ ...v, size }))
+  const panes = await $.ui.panes()
+  if (panes.some(p => p.id === PANE)) await $.ui.open({ id: PANE, title: TITLE, rows: paneRows(size) })
+}
+
+async function stepSize($: $, by: number) {
+  const { size = settings.size } = await read($, view)
+  const next = SIZES[Math.min(SIZES.length - 1, Math.max(0, SIZES.indexOf(size) + by))] ?? size
+  if (next !== size) await setSize($, next)
+}
 
 async function getToken($: $) {
   const token = await $.store.get('token')
@@ -192,8 +260,8 @@ async function isAutoOpen($: $) {
 }
 
 async function openPane($: $, focus = false) {
-  await $.ui.open({ id: PANE, title: TITLE, rows: 17, ...(focus ? { focus: true as const } : {}) })
   const v = await read($, view)
+  await $.ui.open({ id: PANE, title: TITLE, rows: paneRows(v.size ?? settings.size), ...(focus ? { focus: true as const } : {}) })
   if (!v.game && !v.isLoading) await loadPuzzle($)
 }
 
@@ -202,16 +270,20 @@ export const register: Register = (on, options) => {
   settings.letters = options.pieces === 'letters'
   settings.autoOpen = options.autoOpen !== false
   settings.autoClose = options.autoClose === true
+  settings.size = asSize(options.size) ?? 'medium'
+  settings.boardTheme = asTheme(options.boardTheme) ?? 'auto'
 
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'chess',
-      description: "Puzzles d'échecs Lichess : ouvrir le panneau, next, login, logout, auto on|off",
-      argumentHint: '[next|login|logout|auto on|auto off]',
+      description: "Puzzles d'échecs Lichess : ouvrir le panneau, next, login, logout, size, theme, auto",
+      argumentHint: '[next|login|logout|size small|medium|large|theme auto|dark|light|auto on|off]',
     })
     const account = (await $.store.get('account')) as Account | undefined
     const stats = (await $.store.get('stats')) as Stats | undefined
-    await update($, view, v => ({ ...v, account: account ?? undefined, stats: stats ?? v.stats }))
+    const size = asSize(await $.store.get('size'))
+    const boardTheme = asTheme(await $.store.get('boardTheme'))
+    await update($, view, v => ({ ...v, account: account ?? undefined, stats: stats ?? v.stats, size, boardTheme }))
     return next(e)
   })
 
@@ -240,8 +312,21 @@ export const register: Register = (on, options) => {
         await $.store.set('autoOpen', isOn)
         return { text: isOn ? 'Le panneau s’ouvrira quand Claude travaille.' : 'Ouverture automatique désactivée.' }
       }
+      case 'size': {
+        const size = asSize(args[1])
+        if (!size) return { text: 'Usage : /chess size small|medium|large' }
+        await setSize($, size)
+        return { text: `Plateau en taille ${size}.` }
+      }
+      case 'theme': {
+        const boardTheme = asTheme(args[1])
+        if (!boardTheme) return { text: 'Usage : /chess theme auto|dark|light' }
+        await $.store.set('boardTheme', boardTheme)
+        await update($, view, v => ({ ...v, boardTheme }))
+        return { text: `Couleurs du plateau : ${boardTheme}.` }
+      }
       default:
-        return { text: 'Usage : /chess [next|login|logout|auto on|auto off]' }
+        return { text: 'Usage : /chess [next|login|logout|size small|medium|large|theme auto|dark|light|auto on|off]' }
     }
   })
 
@@ -281,6 +366,8 @@ export const register: Register = (on, options) => {
             se connecter
           </Button>
         )}
+        <Button key="size-down" plain dimColor onPress={() => void stepSize($, -1)}>−</Button>
+        <Button key="size-up" plain dimColor onPress={() => void stepSize($, 1)}>+</Button>
       </Box>
     )
 
@@ -317,25 +404,40 @@ export const register: Register = (on, options) => {
     }
 
     const pos = parseFen(g.fen)
+    const colors = await paletteFor($, v.boardTheme ?? settings.boardTheme)
+    const { width, height } = SQUARE[v.size ?? settings.size]
     const ranks = g.player === 'w' ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7]
     const files = g.player === 'w' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0]
     const last = g.lastMove ? [g.lastMove.slice(0, 2), g.lastMove.slice(2, 4)] : []
+    const middle = Math.floor(height / 2)
+    // The text of one square: the glyph centered on its middle row.
+    const cellText = (glyph: string) =>
+      Array.from({ length: height }, (_, row) => {
+        if (row !== middle) return ' '.repeat(width)
+        const left = Math.floor((width - 1) / 2)
+        return ' '.repeat(left) + glyph + ' '.repeat(width - 1 - left)
+      }).join('\n')
     const square = (index: number) => {
       const name = sqName(index)
       const isLight = (index % 8 + Math.floor(index / 8)) % 2 === 1
       const bg =
-        g.selected === name ? COLORS.selected
-          : g.hint === name ? COLORS.hint
-          : last.includes(name) ? (isLight ? COLORS.lastLight : COLORS.lastDark)
-          : isLight ? COLORS.light : COLORS.dark
+        g.selected === name ? colors.selected
+          : g.hint === name ? colors.hint
+          : last.includes(name) ? (isLight ? colors.lastLight : colors.lastDark)
+          : isLight ? colors.light : colors.dark
       const piece = pos.board[index] ?? ''
-      const glyph = piece === '' ? ' ' : settings.letters ? piece : GLYPHS[piece] ?? piece
+      const glyph = piece === '' ? ' ' : settings.letters ? piece.toUpperCase() : GLYPHS[piece.toLowerCase()] ?? piece
       return (
         <Button key={`sq-${name}`} plain onPress={() => void clickSquare($, index)}>
-          <Text backgroundColor={bg} color={COLORS.piece} bold>{` ${glyph} `}</Text>
+          <Text backgroundColor={bg} color={sideOf(piece) === 'w' ? colors.white : colors.black} bold>
+            {cellText(glyph)}
+          </Text>
         </Button>
       )
     }
+    const rankLabel = (r: number) =>
+      Array.from({ length: height }, (_, row) => (row === middle ? `${r + 1} ` : '  ')).join('\n')
+    const fileLabels = '  ' + files.map(f => cellText('abcdefgh'.charAt(f)).split('\n')[middle]).join('')
     const puzzleUrl = g.puzzle.source === 'lichess' ? `${LICHESS}/training/${g.puzzle.id}` : undefined
     const side = g.player === 'w' ? 'Blancs' : 'Noirs'
 
@@ -349,11 +451,11 @@ export const register: Register = (on, options) => {
         </Text>
         {ranks.map(r => (
           <Box key={`rank-${r}`} flexDirection="row">
-            <Text dimColor>{`${r + 1} `}</Text>
+            <Text dimColor>{rankLabel(r)}</Text>
             {files.map(f => square(r * 8 + f))}
           </Box>
         ))}
-        <Text dimColor>{'  ' + files.map(f => ` ${'abcdefgh'[f]} `).join('')}</Text>
+        <Text dimColor>{fileLabels}</Text>
         {g.message && (
           <Text color={g.status === 'solved' ? 'success' : g.message.startsWith('✗') ? 'error' : undefined}>{g.message}</Text>
         )}
