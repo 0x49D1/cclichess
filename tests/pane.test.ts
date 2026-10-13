@@ -99,3 +99,42 @@ test('board colors follow the theme and the size changes', async ($, on) => {
   expect(JSON.stringify(await light.drawn())).toContain('#b08660')
   await light.unmount()
 })
+
+test('the pane stays while a started puzzle runs, and closes once it and Claude are done', async ($, on) => {
+  mock.store(on)
+  const clock = mock.clock(on)
+  on('http.fetch', async () => ({ value: { status: 503, ok: false, headers: {}, text: '' } }))
+  on('ui.toast', async () => ({ value: undefined }))
+  let isOpen = false
+  on('ui.open', async () => {
+    isOpen = true
+    return { value: { isPlaced: true } as never }
+  })
+  on('ui.close', async () => {
+    isOpen = false
+    return { value: undefined }
+  })
+  on('ui.panes', async () => ({ value: (isOpen ? [{ id: 'lichess-puzzle' }] : []) as never }))
+  on('turn.start', async (_$, e) => ({ turnId: e.turnId }))
+  on('turn.complete', async () => ({ text: '' }))
+  const complete = { reason: 'answer', answer: '', durationMs: 1, isAborted: false, turnId: 't' } as const
+
+  // An untouched puzzle closes with Claude.
+  await $.turn.start({ text: 'go', turnId: 't' })
+  await clock.advance(0)
+  expect(isOpen).toBe(true)
+  await $.turn.complete(complete)
+  expect(isOpen).toBe(false)
+
+  // A started one stays, then closes after it ends.
+  await $.turn.start({ text: 'go', turnId: 't' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'hint' })
+  await $.turn.complete(complete)
+  expect(isOpen).toBe(true)
+  await ui.press({ key: 'reveal' })
+  expect(isOpen).toBe(true)
+  await clock.advance(3000)
+  expect(isOpen).toBe(false)
+  await ui.unmount()
+})

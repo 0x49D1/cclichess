@@ -73,7 +73,7 @@ const settings = {
   difficulty: 'normal',
   letters: false,
   autoOpen: true,
-  autoClose: false,
+  autoClose: true,
   size: 'medium' as BoardSize,
   boardTheme: 'auto' as BoardTheme,
 }
@@ -192,7 +192,27 @@ async function afterMove($: $) {
     })
     return
   }
-  if (game.status !== 'playing') await settle($, game, isWin(game))
+  if (game.status !== 'playing') {
+    await settle($, game, isWin(game))
+    await closeLater($, game.puzzle.id)
+  }
+}
+
+/** A puzzle the person has started: a move, a mistake or some help. */
+const isStarted = (g: Game | undefined) =>
+  g?.status === 'playing' && (g.played.length > 0 || g.hadMistake || g.usedHelp)
+
+/** Once Claude is done too, close the pane a moment after the puzzle ends. */
+async function closeLater($: $, puzzleId: string) {
+  const v = await read($, view)
+  if (!settings.autoClose || v.isClaudeWorking) return
+  $.clock.after(3000, () => void closeIfIdle($, puzzleId))
+}
+
+async function closeIfIdle($: $, puzzleId: string) {
+  const v = await read($, view)
+  const isSamePuzzleDone = v.game?.puzzle.id === puzzleId && v.game.status !== 'playing'
+  if (settings.autoClose && !v.isClaudeWorking && isSamePuzzleDone) await $.ui.close({ id: PANE })
 }
 
 async function changeGame($: $, change: (g: Game) => Game) {
@@ -262,14 +282,15 @@ async function isAutoOpen($: $) {
 async function openPane($: $, focus = false) {
   const v = await read($, view)
   await $.ui.open({ id: PANE, title: TITLE, rows: paneRows(v.size ?? settings.size), ...(focus ? { focus: true as const } : {}) })
-  if (!v.game && !v.isLoading) await loadPuzzle($)
+  // A finished puzzle makes way for a new one.
+  if ((!v.game || v.game.status !== 'playing') && !v.isLoading) await loadPuzzle($)
 }
 
 export const register: Register = (on, options) => {
   settings.difficulty = String(options.difficulty ?? 'normal')
   settings.letters = options.pieces === 'letters'
   settings.autoOpen = options.autoOpen !== false
-  settings.autoClose = options.autoClose === true
+  settings.autoClose = options.autoClose !== false
   settings.size = asSize(options.size) ?? 'medium'
   settings.boardTheme = asTheme(options.boardTheme) ?? 'auto'
 
@@ -331,18 +352,23 @@ export const register: Register = (on, options) => {
   })
 
   on('turn.start', async ($, e, next) => {
+    await update($, view, v => ({ ...v, isClaudeWorking: true }))
     if (await isAutoOpen($)) void openPane($).catch(() => undefined)
     return next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
+    // A subagent's turn ending is not Claude being done.
+    if (e.agentId) return result
+    const { game } = await update($, view, v => ({ ...v, isClaudeWorking: false }))
     const panes = await $.ui.panes()
     if (!panes.some(p => p.id === PANE)) return result
-    const { game } = await read($, view)
-    const isMidPuzzle = game?.status === 'playing' && game.played.length > 0
-    if (settings.autoClose && !isMidPuzzle) await $.ui.close({ id: PANE })
-    else if (game?.status === 'playing') $.ui.toast('Claude a terminé ✓ (le puzzle t’attend)')
+    if (isStarted(game)) {
+      $.ui.toast(settings.autoClose ? 'Claude a terminé ✓ Finis ton puzzle, le panneau se fermera ensuite.' : 'Claude a terminé ✓')
+    } else if (settings.autoClose) {
+      await $.ui.close({ id: PANE })
+    }
     return result
   })
 

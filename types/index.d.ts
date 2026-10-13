@@ -52,6 +52,8 @@ export type View = {
   size?: BoardSize
   /** Chosen with /chess theme; the setting otherwise. */
   boardTheme?: BoardTheme
+  /** Claude is running a turn: the pane waits for it before closing. */
+  isClaudeWorking?: boolean
 }
 
 declare module 'claude-code' {
