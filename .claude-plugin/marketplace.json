@@ -1,0 +1,5 @@
+{
+  "name": "cclichess",
+  "owner": { "name": "mrtnsk" },
+  "plugins": [{ "name": "lichess-puzzles", "source": "./" }]
+}
