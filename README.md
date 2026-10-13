@@ -18,7 +18,12 @@ Réponds `y` pour ajouter la marketplace, puis choisis la portée (utilisateur).
 
 ## Utilisation
 
-Le panneau s'ouvre tout seul quand Claude commence un tour. Pour jouer :
+Le panneau s'ouvre tout seul quand Claude commence un tour. Quand Claude a fini :
+
+- puzzle pas commencé → le panneau se ferme ;
+- puzzle commencé → il reste ouvert, et se ferme quelques secondes après la fin du puzzle.
+
+Pour jouer :
 
 - **clique** la pièce puis la case d'arrivée, ou
 - **tape** le coup dans le champ : `e2e4`, `Nf3`, `Cf3`, `Dxh7#`… (notation anglaise ou française)
@@ -43,7 +48,7 @@ Commandes :
 ### Réglages (`/config`)
 
 - **Ouvrir à chaque prompt** (oui par défaut)
-- **Fermer quand Claude a fini** (non par défaut ; jamais au milieu d'un puzzle commencé)
+- **Fermer quand tout est fini** (oui par défaut) : quand Claude a fini et que le puzzle commencé est terminé
 - **Difficulté** : easiest → hardest
 - **Pièces** : symboles unicode ou lettres (si ton terminal affiche mal ♞)
 - **Taille du plateau** : small (2 colonnes par case), medium (3), large (5×3)
