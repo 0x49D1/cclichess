@@ -68,3 +68,34 @@ test('falls back to an offline puzzle, on every surface', async ($, on) => {
     await ui.unmount()
   }
 })
+
+test('board colors follow the theme and the size changes', async ($, on) => {
+  mock.store(on)
+  mock.clock(on)
+  on('http.fetch', async () => ({ value: { status: 503, ok: false, headers: {}, text: '' } }))
+  let theme = 'dark'
+  on('config.list', async () => ({ value: [{ key: 'theme', value: theme }] as never }))
+  on('ui.panes', async () => ({ value: [] }))
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'load' })
+  let drawn = JSON.stringify(await ui.drawn())
+  expect(drawn).toContain('#55606d')
+  expect(drawn).not.toContain('#b08660')
+
+  await ui.press({ key: 'size-up' })
+  drawn = JSON.stringify(await ui.drawn())
+  // Large squares: three rows of five cells each.
+  expect(drawn).toContain('     \\n')
+  await ui.press({ key: 'size-down' })
+  await ui.press({ key: 'size-down' })
+  drawn = JSON.stringify(await ui.drawn())
+  expect(drawn).toMatch(/  ([a-h] ){8}/)
+  expect(drawn).not.toContain('     \\n')
+  await ui.unmount()
+
+  theme = 'light'
+  const light = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect(JSON.stringify(await light.drawn())).toContain('#b08660')
+  await light.unmount()
+})

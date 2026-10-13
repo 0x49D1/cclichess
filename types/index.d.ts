@@ -37,6 +37,9 @@ export type Account = { username: string; rating?: number }
 
 export type Stats = { solved: number; failed: number; streak: number }
 
+export type BoardSize = 'small' | 'medium' | 'large'
+export type BoardTheme = 'auto' | 'dark' | 'light'
+
 export type View = {
   game?: Game
   isLoading: boolean
@@ -45,6 +48,10 @@ export type View = {
   isLoginOpen: boolean
   loginError?: string
   stats: Stats
+  /** Chosen with /chess size or the − / + buttons; the setting otherwise. */
+  size?: BoardSize
+  /** Chosen with /chess theme; the setting otherwise. */
+  boardTheme?: BoardTheme
 }
 
 declare module 'claude-code' {

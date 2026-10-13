@@ -32,6 +32,8 @@ Commandes :
 | `/chess next` | puzzle suivant |
 | `/chess login` | connecter ton compte Lichess |
 | `/chess logout` | déconnecter (le token est aussi révoqué sur Lichess) |
+| `/chess size small` / `medium` / `large` | taille du plateau (aussi les boutons `−` `+` du panneau) |
+| `/chess theme auto` / `dark` / `light` | couleurs du plateau (`auto` suit le thème de Claude Code) |
 | `/chess auto on` / `off` | ouverture automatique pendant que Claude travaille |
 
 ### Connexion Lichess
@@ -44,6 +46,8 @@ Commandes :
 - **Fermer quand Claude a fini** (non par défaut ; jamais au milieu d'un puzzle commencé)
 - **Difficulté** : easiest → hardest
 - **Pièces** : symboles unicode ou lettres (si ton terminal affiche mal ♞)
+- **Taille du plateau** : small (2 colonnes par case), medium (3), large (5×3)
+- **Couleurs du plateau** : auto (suit le thème sombre/clair de Claude Code), dark, light
 
 ## Développement
 
