@@ -1,0 +1,34 @@
+{
+  "name": "lichess-puzzles",
+  "version": "0.1.0",
+  "description": "Puzzles d'échecs Lichess dans un petit panneau pendant que Claude travaille, en anonyme ou connecté à ton compte Lichess",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "autoOpen": {
+      "type": "boolean",
+      "title": "Ouvrir à chaque prompt",
+      "description": "Ouvre le panneau puzzle quand Claude commence à travailler",
+      "default": true
+    },
+    "autoClose": {
+      "type": "boolean",
+      "title": "Fermer quand Claude a fini",
+      "description": "Ferme le panneau à la fin du tour (sauf puzzle en cours)",
+      "default": false
+    },
+    "difficulty": {
+      "type": "string",
+      "title": "Difficulté",
+      "description": "Difficulté des puzzles Lichess, relative à ton classement",
+      "options": ["easiest", "easier", "normal", "harder", "hardest"],
+      "default": "normal"
+    },
+    "pieces": {
+      "type": "string",
+      "title": "Pièces",
+      "description": "Symboles unicode ou lettres (si ton terminal affiche mal ♞)",
+      "options": ["unicode", "letters"],
+      "default": "unicode"
+    }
+  }
+}
