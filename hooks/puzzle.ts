@@ -2,6 +2,10 @@ import type { Game, PuzzleData } from '../types'
 import {
   START_FEN, isCheckmate, legalMoves, makeMove, parseFen, parseMove, sqIndex, sqName, toFen, toSan, toUci,
 } from './chess'
+import { stringsFor } from './i18n'
+import type { Strings } from './i18n'
+
+const EN = stringsFor('en')
 
 /** Used when Lichess cannot be reached. */
 export const OFFLINE: PuzzleData[] = [
@@ -20,12 +24,12 @@ const stripPgn = (pgn: string) =>
     .filter(t => t && !/^(1-0|0-1|1\/2-1\/2|\*)$/.test(t))
 
 /** Turns the answer of /api/puzzle/next (or /daily) into a puzzle. */
-export function fromLichess(json: unknown): PuzzleData {
+export function fromLichess(json: unknown, t: Strings = EN): PuzzleData {
   const { game, puzzle } = json as {
     game?: { pgn?: string }
     puzzle?: { id?: string; rating?: number; themes?: string[]; solution?: string[]; initialPly?: number }
   }
-  if (!puzzle?.id || !puzzle.solution?.length) throw new Error('réponse Lichess inattendue')
+  if (!puzzle?.id || !puzzle.solution?.length) throw new Error(t.unexpectedPuzzle)
   const tokens = stripPgn(String(game?.pgn ?? ''))
   const initial = puzzle.initialPly ?? tokens.length - 1
   for (const count of [tokens.length, initial + 1, initial]) {
@@ -53,10 +57,10 @@ export function fromLichess(json: unknown): PuzzleData {
       }
     }
   }
-  throw new Error(`impossible de rejouer la partie du puzzle ${puzzle.id}`)
+  throw new Error(t.cannotReplay(puzzle.id))
 }
 
-export function newGame(puzzle: PuzzleData): Game {
+export function newGame(puzzle: PuzzleData, t: Strings = EN): Game {
   return {
     puzzle,
     fen: puzzle.fen,
@@ -68,7 +72,7 @@ export function newGame(puzzle: PuzzleData): Game {
     usedHelp: false,
     played: [],
     isReported: false,
-    message: `À toi de jouer avec les ${parseFen(puzzle.fen).turn === 'w' ? 'Blancs' : 'Noirs'}.`,
+    message: t.yourMove(t.side(parseFen(puzzle.fen).turn === 'w')),
   }
 }
 
@@ -76,17 +80,17 @@ export function newGame(puzzle: PuzzleData): Game {
 export const awaitsReply = (g: Game) => g.status === 'playing' && parseFen(g.fen).turn !== g.player
 
 /** Plays the solver's move, typed as UCI or SAN. */
-export function play(game: Game, text: string): Game {
+export function play(game: Game, text: string, t: Strings = EN): Game {
   if (game.status !== 'playing') return { ...game, selected: undefined }
   if (awaitsReply(game)) return game
   const pos = parseFen(game.fen)
   const move = parseMove(pos, text)
-  if (!move) return { ...game, selected: undefined, message: `Coup illégal : ${text}` }
+  if (!move) return { ...game, selected: undefined, message: t.illegal(text) }
   const san = toSan(pos, move)
   const after = makeMove(pos, move)
   const mate = isCheckmate(after)
   if (toUci(move) !== game.puzzle.solution[game.ply] && !mate) {
-    return { ...game, selected: undefined, hadMistake: true, message: `✗ ${san} n'est pas le bon coup. Réessaie !` }
+    return { ...game, selected: undefined, hadMistake: true, message: t.wrong(san) }
   }
   const next: Game = {
     ...game,
@@ -96,21 +100,21 @@ export function play(game: Game, text: string): Game {
     selected: undefined,
     hint: undefined,
     played: [...game.played, san],
-    message: `✓ ${san} — bien joué !`,
+    message: t.good(san),
   }
   if (mate || next.ply >= game.puzzle.solution.length) {
-    return { ...next, status: 'solved', message: game.hadMistake || game.usedHelp ? `Résolu avec de l'aide (${san}).` : `🎉 Résolu ! ${san}` }
+    return { ...next, status: 'solved', message: game.hadMistake || game.usedHelp ? t.solvedWithHelp(san) : t.solved(san) }
   }
   return next
 }
 
 /** Plays the opponent's answer from the solution. */
-export function reply(game: Game): Game {
+export function reply(game: Game, t: Strings = EN): Game {
   if (!awaitsReply(game)) return game
   const pos = parseFen(game.fen)
   const uci = game.puzzle.solution[game.ply]
   const move = legalMoves(pos).find(m => toUci(m) === uci)
-  if (!move) return { ...game, status: 'revealed', message: 'Solution Lichess illisible, puzzle abandonné.' }
+  if (!move) return { ...game, status: 'revealed', message: t.unreadable }
   const san = toSan(pos, move)
   return {
     ...game,
@@ -118,7 +122,7 @@ export function reply(game: Game): Game {
     ply: game.ply + 1,
     lastMove: uci,
     played: [...game.played, san],
-    message: `L'adversaire répond ${san}. À toi !`,
+    message: t.replies(san),
   }
 }
 
@@ -132,23 +136,22 @@ export function clickToUci(game: Game, from: number, to: number): string {
   return promotes ? base + 'q' : base
 }
 
-export function hint(game: Game): Game {
+export function hint(game: Game, t: Strings = EN): Game {
   if (game.status !== 'playing' || awaitsReply(game)) return game
   const uci = game.puzzle.solution[game.ply]
   if (!uci) return game
   const pos = parseFen(game.fen)
   const piece = pos.board[sqIndex(uci.slice(0, 2))] ?? ''
-  const names: Record<string, string> = { p: 'un pion', n: 'un cavalier', b: 'un fou', r: 'une tour', q: 'la dame', k: 'le roi' }
   return {
     ...game,
     hint: uci.slice(0, 2),
     usedHelp: true,
-    message: `Indice : joue ${names[piece.toLowerCase()] ?? 'la pièce'} en ${uci.slice(0, 2)}.`,
+    message: t.hint(t.pieces[piece.toLowerCase()] ?? t.thePiece, uci.slice(0, 2)),
   }
 }
 
 /** Plays the rest of the solution and shows it. */
-export function reveal(game: Game): Game {
+export function reveal(game: Game, t: Strings = EN): Game {
   if (game.status !== 'playing') return game
   let g: Game = { ...game, usedHelp: true }
   const line: string[] = []
@@ -161,7 +164,7 @@ export function reveal(game: Game): Game {
     line.push(san)
     g = { ...g, fen: toFen(makeMove(pos, move)), ply: g.ply + 1, lastMove: uci, played: [...g.played, san] }
   }
-  return { ...g, status: 'revealed', hint: undefined, selected: undefined, message: `Solution : ${line.join(' ')}` }
+  return { ...g, status: 'revealed', hint: undefined, selected: undefined, message: t.solution(line.join(' ')) }
 }
 
 /** Whether this puzzle counts as a win on Lichess: solved with no mistake and no help. */

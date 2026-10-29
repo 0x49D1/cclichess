@@ -1,60 +1,64 @@
 # cclichess
 
-Un mod Claude Code qui affiche des **puzzles d'échecs Lichess** dans un petit panneau pendant que Claude travaille sur ton prompt.
+**English** · [Français](README.fr.md)
 
-- **Anonyme** par défaut : puzzles aléatoires de Lichess, stats gardées en local.
-- **Connecté** (optionnel) : puzzles que tu n'as jamais vus, résultats envoyés à Lichess, ton classement puzzle s'affiche et évolue.
-- Hors-ligne : si lichess.org est injoignable, un petit jeu de puzzles intégré prend le relais.
+A Claude Code mod that shows **Lichess chess puzzles** in a small pane while Claude works on your prompt.
 
-## Installation
+- **Anonymous** by default: random Lichess puzzles, stats kept locally.
+- **Signed in** (optional): puzzles you have never seen, results sent to Lichess, your puzzle rating shows and moves.
+- Offline: if lichess.org can't be reached, a small built-in set of puzzles takes over.
 
-Dans une session Claude Code (terminal) :
+## Install
+
+In a Claude Code session (terminal):
 
 ```
 /plugin install lichess-puzzles --marketplace mrtnsk/cclichess
 ```
 
-Réponds `y` pour ajouter la marketplace, puis choisis la portée (utilisateur).
+Answer `y` to add the marketplace, then pick the scope (user).
 
-## Utilisation
+## Usage
 
-Le panneau s'ouvre tout seul quand Claude commence un tour. Quand Claude a fini :
+The pane opens by itself when Claude starts a turn. When Claude is done:
 
-- puzzle pas commencé → le panneau se ferme ;
-- puzzle commencé → il reste ouvert, et se ferme quelques secondes après la fin du puzzle.
+- puzzle not started → the pane closes;
+- puzzle started → it stays open, and closes a few seconds after the puzzle ends.
 
-Pour jouer :
+To play:
 
-- **clique** la pièce puis la case d'arrivée, ou
-- **tape** le coup dans le champ : `e2e4`, `Nf3`, `Cf3`, `Dxh7#`… (notation anglaise ou française)
-- `h` indice · `s` solution · `n` puzzle suivant (quand le panneau a le focus)
+- **click** the piece, then the target square, or
+- **type** the move in the field: `e2e4`, `Nf3`, `Cf3`, `Qxh7#`… (English or French notation)
+- `h` hint · `s` solution · `n` next puzzle (when the pane has focus)
 
-Commandes :
+Commands:
 
-| Commande | Effet |
+| Command | Effect |
 | --- | --- |
-| `/chess` | ouvre le panneau |
-| `/chess next` | puzzle suivant |
-| `/chess login` | connecter ton compte Lichess |
-| `/chess logout` | déconnecter (le token est aussi révoqué sur Lichess) |
-| `/chess size small` / `medium` / `large` | taille du plateau (aussi les boutons `−` `+` du panneau) |
-| `/chess theme auto` / `dark` / `light` | couleurs du plateau (`auto` suit le thème de Claude Code) |
-| `/chess auto on` / `off` | ouverture automatique pendant que Claude travaille |
+| `/chess` | opens the pane |
+| `/chess next` | next puzzle |
+| `/chess login` | sign in to your Lichess account |
+| `/chess logout` | sign out (the token is revoked on Lichess too) |
+| `/chess size small` / `medium` / `large` | board size (also the pane's `−` `+` buttons) |
+| `/chess theme auto` / `dark` / `light` | board colors (`auto` follows Claude Code's theme) |
+| `/chess auto on` / `off` | open automatically while Claude works |
+| `/chess lang auto` / `en` / `fr` | pane language (`auto` follows Claude Code's language setting, then the system locale) |
 
-### Connexion Lichess
+### Lichess sign-in
 
-`/chess login` (ou « se connecter » dans le panneau) affiche un lien qui crée un **token personnel** Lichess avec les seuls droits `puzzle:read` et `puzzle:write`. Colle-le dans le champ du panneau : il est vérifié puis gardé dans le stockage local du plugin. Il ne passe jamais dans la conversation avec Claude (ne le mets pas en argument de `/chess login`).
+`/chess login` (or "sign in" in the pane) shows a link that creates a Lichess **personal token** with only the `puzzle:read` and `puzzle:write` scopes. Paste it in the pane's field: it is checked, then kept in the plugin's local storage. It never goes through the conversation with Claude (don't pass it as an argument to `/chess login`).
 
-### Réglages (`/config`)
+### Settings (`/config`)
 
-- **Ouvrir à chaque prompt** (oui par défaut)
-- **Fermer quand tout est fini** (oui par défaut) : quand Claude a fini et que le puzzle commencé est terminé
-- **Difficulté** : easiest → hardest
-- **Pièces** : symboles unicode ou lettres (si ton terminal affiche mal ♞)
-- **Taille du plateau** : small (2 colonnes par case), medium (3), large (5×3)
-- **Couleurs du plateau** : auto (suit le thème sombre/clair de Claude Code), dark, light
+- **Open on every prompt** (on by default)
+- **Close when all is done** (on by default): once Claude is done and the started puzzle is over
+- **Difficulty**: easiest → hardest
+- **Pieces**: unicode symbols or letters (if your terminal draws ♞ badly)
+- **Board size**: small (2 columns per square), medium (3), large (5×3)
+- **Board colors**: auto (follows Claude Code's dark/light theme), dark, light
+- **Language**: auto (Claude Code's language setting, then the system locale; English otherwise), en, fr
 
-## Développement
+## Development
 
 ```
 claude plugin validate .
@@ -62,6 +66,7 @@ claude plugin test .
 claude --plugin-dir .
 ```
 
-- `hooks/chess.ts` : règles des échecs (FEN, coups légaux, SAN/UCI), vérifié par perft
-- `hooks/puzzle.ts` : logique des puzzles Lichess
-- `hooks/register.tsx` : panneau, commandes, connexion, API Lichess
+- `hooks/chess.ts`: chess rules (FEN, legal moves, SAN/UCI), checked by perft
+- `hooks/puzzle.ts`: Lichess puzzle logic
+- `hooks/i18n.ts`: the texts of each language; to add one: its texts in `STRINGS`, its code in `Locale` and `LOCALES`, its detection in `pickLocale`
+- `hooks/register.tsx`: pane, commands, sign-in, Lichess API

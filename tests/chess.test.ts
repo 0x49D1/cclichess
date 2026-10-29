@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { START_FEN, isCheckmate, legalMoves, makeMove, parseFen, parseMove, toFen, toSan } from '../hooks/chess'
+import { pickLocale, stringsFor } from '../hooks/i18n'
 import { OFFLINE, fromLichess, hint, newGame, play, reply, reveal } from '../hooks/puzzle'
 
 const perft = (fen: string, depth: number): number => {
@@ -79,6 +80,22 @@ describe('puzzles', () => {
     expect(g.usedHelp).toBe(true)
     const r = reveal(newGame(OFFLINE.find(p => p.id === 'off-deflect')!))
     expect(r.status).toBe('revealed')
-    expect(r.message).toBe('Solution : Qe8+ Rxe8 Rxe8#')
+    expect(r.message).toBe('Solution: Qe8+ Rxe8 Rxe8#')
   })
+
+  test('messages in French', () => {
+    const fr = stringsFor('fr')
+    const g = hint(newGame(OFFLINE[0]!, fr), fr)
+    expect(g.message).toBe('Indice : joue une tour en d1.')
+    expect(play(g, 'Td8#', fr).message).toBe("Résolu avec de l'aide (Rd8#).")
+  })
+})
+
+test('the language: /chess lang, the option, Claude Code’s setting, then the locale; English otherwise', () => {
+  expect(pickLocale([undefined, 'auto', undefined, undefined, undefined, 'fr_FR.UTF-8'])).toBe('fr')
+  expect(pickLocale([undefined, 'auto', 'Français', 'en_US.UTF-8'])).toBe('fr')
+  expect(pickLocale([undefined, 'en', 'french', 'fr_FR.UTF-8'])).toBe('en')
+  expect(pickLocale(['fr', 'en'])).toBe('fr')
+  expect(pickLocale([undefined, undefined, 'C', 'de_DE.UTF-8'])).toBe('en')
+  expect(pickLocale([])).toBe('en')
 })

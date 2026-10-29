@@ -39,8 +39,8 @@ test('solve a Lichess puzzle by clicking, then sign in', async ($, on) => {
 
   await ui.press({ key: 'sq-f3' })
   await ui.press({ key: 'sq-f7' })
-  expect(await ui.find({ text: /Résolu/ })).toBeDefined()
-  expect(await ui.find({ text: /1✓ 0✗ · série 1/ })).toBeDefined()
+  expect(await ui.find({ text: /Solved/ })).toBeDefined()
+  expect(await ui.find({ text: /1✓ 0✗ · streak 1/ })).toBeDefined()
   // Anonymous: nothing is sent to Lichess.
   expect(calls.some(c => c.includes('batch'))).toBe(false)
 
@@ -50,7 +50,7 @@ test('solve a Lichess puzzle by clicking, then sign in', async ($, on) => {
 
   await ui.press({ key: 'next' })
   await ui.input({ key: 'move-abc12', text: 'Dxf7' })
-  expect(await ui.find({ text: /Résolu/ })).toBeDefined()
+  expect(await ui.find({ text: /Solved/ })).toBeDefined()
   expect(calls.some(c => c.startsWith('POST') && c.includes('batch') && c.includes('Bearer lip_secret'))).toBe(true)
   expect(await ui.find({ text: /magnus \(2108\)/ })).toBeDefined()
   await ui.unmount()
@@ -63,7 +63,7 @@ test('falls back to an offline puzzle, on every surface', async ($, on) => {
   for (const surface of ['terminal', 'desktop', 'mobile'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
     if (await ui.find({ key: 'load' })) await ui.press({ key: 'load' })
-    expect(await ui.find({ text: /hors-ligne/ })).toBeDefined()
+    expect(await ui.find({ text: /offline/ })).toBeDefined()
     expect(await ui.find({ key: 'sq-e1' })).toBeDefined()
     await ui.unmount()
   }
@@ -136,5 +136,32 @@ test('the pane stays while a started puzzle runs, and closes once it and Claude 
   expect(isOpen).toBe(true)
   await clock.advance(3000)
   expect(isOpen).toBe(false)
+  await ui.unmount()
+})
+
+test('a French locale speaks French, /chess lang switches to English', async ($, on) => {
+  mock.store(on)
+  mock.clock(on)
+  mock.env(on, { LANG: 'fr_FR.UTF-8' })
+  on('http.fetch', async () => ({ value: { status: 503, ok: false, headers: {}, text: '' } }))
+  on('ui.panes', async () => ({ value: [] }))
+  on('ui.open', async () => ({ value: { isPlaced: true } as never }))
+  on('command.register', async (_$, e) => ({ value: { command: e.name } }))
+  on('session.start', async (_$, e) => e)
+  const run = (args: string) =>
+    $.command.run({ command: 'chess', args, origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 120 } })
+
+  // No choice made: the system locale wins over the English default.
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'load' })
+  expect(await ui.find({ text: /hors-ligne/ })).toBeDefined()
+  expect(await ui.find({ key: 'next' })).toMatchObject({ text: expect.stringContaining('Suivant') })
+
+  // A choice redraws the pane; auto goes back to the locale.
+  expect((await run('lang en')).text).toBe('Language: en.')
+  expect(await ui.find({ key: 'next' })).toMatchObject({ text: expect.stringContaining('Next') })
+  expect((await run('lang de')).text).toMatch(/^Usage: \/chess lang auto\|en\|fr/)
+  expect((await run('lang auto')).text).toBe('Langue : fr.')
   await ui.unmount()
 })

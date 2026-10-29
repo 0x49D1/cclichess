@@ -1,25 +1,25 @@
 {
   "name": "lichess-puzzles",
-  "version": "0.3.0",
-  "description": "Puzzles d'échecs Lichess dans un petit panneau pendant que Claude travaille, en anonyme ou connecté à ton compte Lichess",
+  "version": "0.4.0",
+  "description": "Lichess chess puzzles in a small pane while Claude works, anonymous or signed in to your Lichess account. English and French.",
   "types": "./types/index.d.ts",
   "userConfig": {
     "autoOpen": {
       "type": "boolean",
-      "title": "Ouvrir à chaque prompt",
-      "description": "Ouvre le panneau puzzle quand Claude commence à travailler",
+      "title": "Open on every prompt",
+      "description": "Opens the puzzle pane when Claude starts working",
       "default": true
     },
     "autoClose": {
       "type": "boolean",
-      "title": "Fermer quand tout est fini",
-      "description": "Ferme le panneau quand Claude a fini et que le puzzle commencé est terminé",
+      "title": "Close when all is done",
+      "description": "Closes the pane once Claude is done and the started puzzle is over",
       "default": true
     },
     "difficulty": {
       "type": "string",
-      "title": "Difficulté",
-      "description": "Difficulté des puzzles Lichess, relative à ton classement",
+      "title": "Difficulty",
+      "description": "Lichess puzzle difficulty, relative to your rating",
       "options": [
         "easiest",
         "easier",
@@ -31,8 +31,8 @@
     },
     "pieces": {
       "type": "string",
-      "title": "Pièces",
-      "description": "Symboles unicode ou lettres (si ton terminal affiche mal ♞)",
+      "title": "Pieces",
+      "description": "Unicode symbols or letters (if your terminal draws ♞ badly)",
       "options": [
         "unicode",
         "letters"
@@ -41,8 +41,8 @@
     },
     "size": {
       "type": "string",
-      "title": "Taille du plateau",
-      "description": "small (2 colonnes par case), medium (3), large (5×3)",
+      "title": "Board size",
+      "description": "small (2 columns per square), medium (3), large (5×3)",
       "options": [
         "small",
         "medium",
@@ -52,12 +52,23 @@
     },
     "boardTheme": {
       "type": "string",
-      "title": "Couleurs du plateau",
-      "description": "auto suit le thème de Claude Code (sombre ou clair)",
+      "title": "Board colors",
+      "description": "auto follows Claude Code's theme (dark or light)",
       "options": [
         "auto",
         "dark",
         "light"
+      ],
+      "default": "auto"
+    },
+    "language": {
+      "type": "string",
+      "title": "Language",
+      "description": "auto follows Claude Code's language setting, then the system locale; English otherwise",
+      "options": [
+        "auto",
+        "en",
+        "fr"
       ],
       "default": "auto"
     }

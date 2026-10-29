@@ -39,6 +39,7 @@ export type Stats = { solved: number; failed: number; streak: number }
 
 export type BoardSize = 'small' | 'medium' | 'large'
 export type BoardTheme = 'auto' | 'dark' | 'light'
+export type Locale = 'en' | 'fr'
 
 export type View = {
   game?: Game
@@ -52,6 +53,8 @@ export type View = {
   size?: BoardSize
   /** Chosen with /chess theme; the setting otherwise. */
   boardTheme?: BoardTheme
+  /** /chess lang, the setting, Claude Code's language, then the system locale; English otherwise. */
+  locale?: Locale
   /** Claude is running a turn: the pane waits for it before closing. */
   isClaudeWorking?: boolean
 }
