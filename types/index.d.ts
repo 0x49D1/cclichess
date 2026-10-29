@@ -13,6 +13,9 @@ export type PuzzleData = {
   source: PuzzleSource
 }
 
+/** A text kept as its key and values, put into words in the person's language when drawn. */
+export type Phrase = { id: string; args?: (string | number | Phrase)[] }
+
 export type PuzzleStatus = 'playing' | 'solved' | 'revealed'
 
 export type Game = {
@@ -27,7 +30,7 @@ export type Game = {
   status: PuzzleStatus
   hadMistake: boolean
   usedHelp: boolean
-  message?: string
+  message?: Phrase
   /** SAN of the moves played since the puzzle started. */
   played: string[]
   isReported: boolean
@@ -44,10 +47,10 @@ export type Locale = 'en' | 'fr'
 export type View = {
   game?: Game
   isLoading: boolean
-  notice?: string
+  notice?: Phrase
   account?: Account
   isLoginOpen: boolean
-  loginError?: string
+  loginError?: Phrase
   stats: Stats
   /** Chosen with /chess size or the − / + buttons; the setting otherwise. */
   size?: BoardSize

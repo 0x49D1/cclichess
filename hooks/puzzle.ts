@@ -2,10 +2,7 @@ import type { Game, PuzzleData } from '../types'
 import {
   START_FEN, isCheckmate, legalMoves, makeMove, parseFen, parseMove, sqIndex, sqName, toFen, toSan, toUci,
 } from './chess'
-import { stringsFor } from './i18n'
-import type { Strings } from './i18n'
-
-const EN = stringsFor('en')
+import { PhraseError, phrase } from './i18n'
 
 /** Used when Lichess cannot be reached. */
 export const OFFLINE: PuzzleData[] = [
@@ -24,12 +21,12 @@ const stripPgn = (pgn: string) =>
     .filter(t => t && !/^(1-0|0-1|1\/2-1\/2|\*)$/.test(t))
 
 /** Turns the answer of /api/puzzle/next (or /daily) into a puzzle. */
-export function fromLichess(json: unknown, t: Strings = EN): PuzzleData {
+export function fromLichess(json: unknown): PuzzleData {
   const { game, puzzle } = json as {
     game?: { pgn?: string }
     puzzle?: { id?: string; rating?: number; themes?: string[]; solution?: string[]; initialPly?: number }
   }
-  if (!puzzle?.id || !puzzle.solution?.length) throw new Error(t.unexpectedPuzzle)
+  if (!puzzle?.id || !puzzle.solution?.length) throw new PhraseError(phrase('unexpectedPuzzle'))
   const tokens = stripPgn(String(game?.pgn ?? ''))
   const initial = puzzle.initialPly ?? tokens.length - 1
   for (const count of [tokens.length, initial + 1, initial]) {
@@ -57,10 +54,10 @@ export function fromLichess(json: unknown, t: Strings = EN): PuzzleData {
       }
     }
   }
-  throw new Error(t.cannotReplay(puzzle.id))
+  throw new PhraseError(phrase('cannotReplay', puzzle.id))
 }
 
-export function newGame(puzzle: PuzzleData, t: Strings = EN): Game {
+export function newGame(puzzle: PuzzleData): Game {
   return {
     puzzle,
     fen: puzzle.fen,
@@ -72,7 +69,7 @@ export function newGame(puzzle: PuzzleData, t: Strings = EN): Game {
     usedHelp: false,
     played: [],
     isReported: false,
-    message: t.yourMove(t.side(parseFen(puzzle.fen).turn === 'w')),
+    message: phrase('yourMove', phrase('side', parseFen(puzzle.fen).turn)),
   }
 }
 
@@ -80,17 +77,17 @@ export function newGame(puzzle: PuzzleData, t: Strings = EN): Game {
 export const awaitsReply = (g: Game) => g.status === 'playing' && parseFen(g.fen).turn !== g.player
 
 /** Plays the solver's move, typed as UCI or SAN. */
-export function play(game: Game, text: string, t: Strings = EN): Game {
+export function play(game: Game, text: string): Game {
   if (game.status !== 'playing') return { ...game, selected: undefined }
   if (awaitsReply(game)) return game
   const pos = parseFen(game.fen)
   const move = parseMove(pos, text)
-  if (!move) return { ...game, selected: undefined, message: t.illegal(text) }
+  if (!move) return { ...game, selected: undefined, message: phrase('illegal', text) }
   const san = toSan(pos, move)
   const after = makeMove(pos, move)
   const mate = isCheckmate(after)
   if (toUci(move) !== game.puzzle.solution[game.ply] && !mate) {
-    return { ...game, selected: undefined, hadMistake: true, message: t.wrong(san) }
+    return { ...game, selected: undefined, hadMistake: true, message: phrase('wrong', san) }
   }
   const next: Game = {
     ...game,
@@ -100,21 +97,21 @@ export function play(game: Game, text: string, t: Strings = EN): Game {
     selected: undefined,
     hint: undefined,
     played: [...game.played, san],
-    message: t.good(san),
+    message: phrase('good', san),
   }
   if (mate || next.ply >= game.puzzle.solution.length) {
-    return { ...next, status: 'solved', message: game.hadMistake || game.usedHelp ? t.solvedWithHelp(san) : t.solved(san) }
+    return { ...next, status: 'solved', message: phrase(game.hadMistake || game.usedHelp ? 'solvedWithHelp' : 'solved', san) }
   }
   return next
 }
 
 /** Plays the opponent's answer from the solution. */
-export function reply(game: Game, t: Strings = EN): Game {
+export function reply(game: Game): Game {
   if (!awaitsReply(game)) return game
   const pos = parseFen(game.fen)
   const uci = game.puzzle.solution[game.ply]
   const move = legalMoves(pos).find(m => toUci(m) === uci)
-  if (!move) return { ...game, status: 'revealed', message: t.unreadable }
+  if (!move) return { ...game, status: 'revealed', message: phrase('unreadable') }
   const san = toSan(pos, move)
   return {
     ...game,
@@ -122,7 +119,7 @@ export function reply(game: Game, t: Strings = EN): Game {
     ply: game.ply + 1,
     lastMove: uci,
     played: [...game.played, san],
-    message: t.replies(san),
+    message: phrase('replies', san),
   }
 }
 
@@ -136,7 +133,7 @@ export function clickToUci(game: Game, from: number, to: number): string {
   return promotes ? base + 'q' : base
 }
 
-export function hint(game: Game, t: Strings = EN): Game {
+export function hint(game: Game): Game {
   if (game.status !== 'playing' || awaitsReply(game)) return game
   const uci = game.puzzle.solution[game.ply]
   if (!uci) return game
@@ -146,12 +143,12 @@ export function hint(game: Game, t: Strings = EN): Game {
     ...game,
     hint: uci.slice(0, 2),
     usedHelp: true,
-    message: t.hint(t.pieces[piece.toLowerCase()] ?? t.thePiece, uci.slice(0, 2)),
+    message: phrase('hint', phrase('piece', piece.toLowerCase()), uci.slice(0, 2)),
   }
 }
 
 /** Plays the rest of the solution and shows it. */
-export function reveal(game: Game, t: Strings = EN): Game {
+export function reveal(game: Game): Game {
   if (game.status !== 'playing') return game
   let g: Game = { ...game, usedHelp: true }
   const line: string[] = []
@@ -164,7 +161,7 @@ export function reveal(game: Game, t: Strings = EN): Game {
     line.push(san)
     g = { ...g, fen: toFen(makeMove(pos, move)), ply: g.ply + 1, lastMove: uci, played: [...g.played, san] }
   }
-  return { ...g, status: 'revealed', hint: undefined, selected: undefined, message: t.solution(line.join(' ')) }
+  return { ...g, status: 'revealed', hint: undefined, selected: undefined, message: phrase('solution', line.join(' ')) }
 }
 
 /** Whether this puzzle counts as a win on Lichess: solved with no mistake and no help. */

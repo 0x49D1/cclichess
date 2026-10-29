@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { START_FEN, isCheckmate, legalMoves, makeMove, parseFen, parseMove, toFen, toSan } from '../hooks/chess'
-import { pickLocale, stringsFor } from '../hooks/i18n'
+import { pickLocale, say, stringsFor } from '../hooks/i18n'
 import { OFFLINE, fromLichess, hint, newGame, play, reply, reveal } from '../hooks/puzzle'
 
 const perft = (fen: string, depth: number): number => {
@@ -80,14 +80,14 @@ describe('puzzles', () => {
     expect(g.usedHelp).toBe(true)
     const r = reveal(newGame(OFFLINE.find(p => p.id === 'off-deflect')!))
     expect(r.status).toBe('revealed')
-    expect(r.message).toBe('Solution: Qe8+ Rxe8 Rxe8#')
+    expect(say(stringsFor('en'), r.message!)).toBe('Solution: Qe8+ Rxe8 Rxe8#')
   })
 
-  test('messages in French', () => {
-    const fr = stringsFor('fr')
-    const g = hint(newGame(OFFLINE[0]!, fr), fr)
-    expect(g.message).toBe('Indice : joue une tour en d1.')
-    expect(play(g, 'Td8#', fr).message).toBe("Résolu avec de l'aide (Rd8#).")
+  test('messages are put into words in either language', () => {
+    const g = hint(newGame(OFFLINE[0]!))
+    expect(say(stringsFor('en'), g.message!)).toBe('Hint: move a rook on d1.')
+    expect(say(stringsFor('fr'), g.message!)).toBe('Indice : joue une tour en d1.')
+    expect(say(stringsFor('fr'), play(g, 'Td8#').message!)).toBe("Résolu avec de l'aide (Rd8#).")
   })
 })
 

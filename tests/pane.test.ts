@@ -157,10 +157,14 @@ test('a French locale speaks French, /chess lang switches to English', async ($,
   await ui.press({ key: 'load' })
   expect(await ui.find({ text: /hors-ligne/ })).toBeDefined()
   expect(await ui.find({ key: 'next' })).toMatchObject({ text: expect.stringContaining('Suivant') })
+  expect(await ui.find({ text: /À toi de jouer/ })).toBeDefined()
+  expect(await ui.find({ text: /Lichess injoignable/ })).toBeDefined()
 
-  // A choice redraws the pane; auto goes back to the locale.
+  // A choice redraws the pane, messages already shown included; auto goes back to the locale.
   expect((await run('lang en')).text).toBe('Language: en.')
   expect(await ui.find({ key: 'next' })).toMatchObject({ text: expect.stringContaining('Next') })
+  expect(await ui.find({ text: /Your move, playing/ })).toBeDefined()
+  expect(await ui.find({ text: /Lichess unreachable \(HTTP 503\)/ })).toBeDefined()
   expect((await run('lang de')).text).toMatch(/^Usage: \/chess lang auto\|en\|fr/)
   expect((await run('lang auto')).text).toBe('Langue : fr.')
   await ui.unmount()

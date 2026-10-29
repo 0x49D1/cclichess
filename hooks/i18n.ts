@@ -1,9 +1,9 @@
-import type { Locale } from '../types'
+import type { Locale, Phrase } from '../types'
 
 export const LOCALES: Locale[] = ['en', 'fr']
 
 const en = {
-  side: (w: boolean): string => (w ? 'White' : 'Black'),
+  side: (color: string): string => (color === 'w' ? 'White' : 'Black'),
   // Puzzle play.
   yourMove: (side: string) => `Your move, playing ${side}.`,
   illegal: (text: string) => `Illegal move: ${text}`,
@@ -13,8 +13,7 @@ const en = {
   solved: (san: string) => `🎉 Solved! ${san}`,
   unreadable: 'Unreadable Lichess solution, puzzle abandoned.',
   replies: (san: string) => `Opponent plays ${san}. Your turn!`,
-  pieces: { p: 'a pawn', n: 'a knight', b: 'a bishop', r: 'a rook', q: 'the queen', k: 'the king' } as Record<string, string>,
-  thePiece: 'the piece',
+  piece: (p: string): string => ({ p: 'a pawn', n: 'a knight', b: 'a bishop', r: 'a rook', q: 'the queen', k: 'the king' })[p] ?? 'the piece',
   hint: (piece: string, square: string) => `Hint: move ${piece} on ${square}.`,
   solution: (line: string) => `Solution: ${line}`,
   // Lichess.
@@ -71,7 +70,7 @@ const en = {
 export type Strings = typeof en
 
 const fr: Strings = {
-  side: w => (w ? 'Blancs' : 'Noirs'),
+  side: color => (color === 'w' ? 'Blancs' : 'Noirs'),
   yourMove: side => `À toi de jouer avec les ${side}.`,
   illegal: text => `Coup illégal : ${text}`,
   wrong: san => `✗ ${san} n'est pas le bon coup. Réessaie !`,
@@ -80,8 +79,7 @@ const fr: Strings = {
   solved: san => `🎉 Résolu ! ${san}`,
   unreadable: 'Solution Lichess illisible, puzzle abandonné.',
   replies: san => `L'adversaire répond ${san}. À toi !`,
-  pieces: { p: 'un pion', n: 'un cavalier', b: 'un fou', r: 'une tour', q: 'la dame', k: 'le roi' },
-  thePiece: 'la pièce',
+  piece: p => ({ p: 'un pion', n: 'un cavalier', b: 'un fou', r: 'une tour', q: 'la dame', k: 'le roi' })[p] ?? 'la pièce',
   hint: (piece, square) => `Indice : joue ${piece} en ${square}.`,
   solution: line => `Solution : ${line}`,
   tokenRefused: 'token refusé, reconnecte-toi',
@@ -135,6 +133,30 @@ const fr: Strings = {
 const STRINGS: Record<Locale, Strings> = { en, fr }
 
 export const stringsFor = (locale: Locale | undefined): Strings => STRINGS[locale ?? 'en']
+
+type Arg = string | number | Phrase
+
+/** A text kept as its key and values, so it is put into words in the language of the moment it is shown. */
+export const phrase = (id: keyof Strings, ...args: Arg[]): Phrase => (args.length ? { id, args } : { id })
+
+export function say(t: Strings, p: Phrase): string {
+  // Text kept by 0.3, when the session's state outlives an update.
+  if (typeof p === 'string') return p
+  const entry = t[p.id as keyof Strings]
+  const args = (p.args ?? []).map(a => (typeof a === 'object' ? say(t, a) : String(a)))
+  return typeof entry === 'function' ? (entry as (...a: string[]) => string)(...args) : typeof entry === 'string' ? entry : p.id
+}
+
+/** An error whose message is a phrase. */
+export class PhraseError extends Error {
+  constructor(readonly phrase: Phrase) {
+    super(say(en, phrase))
+  }
+}
+
+/** Why something failed, as a phrase when we wrote the reason. */
+export const reason = (err: unknown): Arg =>
+  err instanceof PhraseError ? err.phrase : err instanceof Error ? err.message : String(err)
 
 export const asLocale = (x: unknown): Locale | undefined => (LOCALES.includes(x as Locale) ? (x as Locale) : undefined)
 
